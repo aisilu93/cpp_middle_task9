@@ -7,7 +7,7 @@
 #include <SFML/Graphics.hpp>
 
 #include <exec/any_sender_of.hpp>
-#include <exec/repeat_effect_until.hpp>
+#include <exec/repeat_until.hpp>
 #include <exec/static_thread_pool.hpp>
 #include <stdexec/execution.hpp>
 
@@ -59,10 +59,22 @@ public:
                    }));
         ex::sync_wait(std::move(initialize));
 
-        auto process_frame = ex::just(); // Ваш код здесь
+        auto process_frame =
+            ex::just() | ex::let_value([this] {
+                return SfmlEventHandler(state_->window, state_->render_settings, state_->app_state);
+            }) |
+            ex::let_value([this]() {
+                return mandelbrot::MakeComputeSender(&state_->fb, state_->app_state.need_rerender,
+                                                     state_->render_settings, state_->app_state.viewport);
+            }) |
+            ex::let_value([this](FrameBuffer *fb) { return render::MakeSfmlDisplaySender(*state_.get()); }) |
+            ex::then([this] {
+                auto fc = FrameClock();
+                WaitForFPS{fc, 60}();
+            });  // Ваш код здесь
 
         auto repeated_pipeline = std::move(process_frame) | ex::then([this] { return state_->app_state.should_exit; }) |
-                                 exec::repeat_effect_until();
+                                 exec::repeat_until();
         ex::sync_wait(std::move(repeated_pipeline));
     }
 

@@ -8,6 +8,10 @@
         "USER_GID": 1000
       }
   },
+  "runArgs": [
+    "--env=DISPLAY",
+    "--volume=/tmp/.X11-unix:/tmp/.X11-unix"
+  ],
   "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
   "remoteUser": "dev",
   "postStartCommand": "conan profile detect || true",
