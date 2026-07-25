@@ -14,6 +14,9 @@
   ],
   "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
   "remoteUser": "dev",
+  "remoteEnv": {
+    "DISPLAY": "host.docker.internal:0.0"
+  },
   "postStartCommand": "conan profile detect || true",
   "customizations": {
     "vscode": {

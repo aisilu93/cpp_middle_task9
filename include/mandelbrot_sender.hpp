@@ -11,12 +11,12 @@ namespace ex = stdexec;
 
 namespace mandelbrot {
 static auto MakeComputeSender(FrameBuffer *fb, bool need_rerender, RenderSettings settings, ViewPort viewport) {
-    AvrTimeCounter time_counter;
-    return ex::just(fb) | ex::then([need_rerender, settings, viewport, &time_counter](FrameBuffer *fb) {
+    auto time_counter = std::make_shared<AvrTimeCounter>();
+    return ex::just(fb) | ex::then([need_rerender, settings, viewport, time_counter](FrameBuffer *fb) {
                if (!need_rerender)
                    return fb;
 
-               time_counter.Start();
+               time_counter->Start();
 
                for (auto x = 0; x < fb->width; x++)
                    for (auto y = 0; y < fb->height; y++) {
@@ -32,13 +32,13 @@ static auto MakeComputeSender(FrameBuffer *fb, bool need_rerender, RenderSetting
                    }
                return fb;
            }) |
-           ex::then([&time_counter](FrameBuffer *fb) {
-               time_counter.End();
-               if (time_counter.Count() % 10 == 0) {
-                   std::println("\nAverage compute time: {} ms over {} frames", time_counter.GetAvr(),
-                                time_counter.Count());
+           ex::then([time_counter](FrameBuffer *fb) {
+               time_counter->End();
+               if (time_counter->Count() % 10 == 0) {
+                   std::println("\nAverage compute time: {} ms over {} frames", time_counter->GetAvr(),
+                                time_counter->Count());
                }
-               time_counter.Reset();
+               time_counter->Reset();
                return fb;
            });
 }

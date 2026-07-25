@@ -48,6 +48,7 @@ public:
     }
 
     void Run() {
+        auto fc = FrameClock();
         auto compute_sched = compute_pool_.get_scheduler();
         auto sfml_sched = sfml_thread_.get_scheduler();
 
@@ -60,18 +61,16 @@ public:
         ex::sync_wait(std::move(initialize));
 
         auto process_frame =
-            ex::just() | ex::let_value([this] {
+            ex::just() | ex::continues_on(sfml_sched) | ex::let_value([this] {
                 return SfmlEventHandler(state_->window, state_->render_settings, state_->app_state);
             }) |
-            ex::let_value([this]() {
+            ex::continues_on(compute_sched) | ex::let_value([this]() {
                 return mandelbrot::MakeComputeSender(&state_->fb, state_->app_state.need_rerender,
                                                      state_->render_settings, state_->app_state.viewport);
             }) |
+            ex::continues_on(sfml_sched) |
             ex::let_value([this](FrameBuffer *fb) { return render::MakeSfmlDisplaySender(*state_.get()); }) |
-            ex::then([this] {
-                auto fc = FrameClock();
-                WaitForFPS{fc, 60}();
-            });  // Ваш код здесь
+            ex::then([this, &fc] { WaitForFPS{fc, 60}(); });  // Ваш код здесь
 
         auto repeated_pipeline = std::move(process_frame) | ex::then([this] { return state_->app_state.should_exit; }) |
                                  exec::repeat_until();

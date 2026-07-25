@@ -140,6 +140,6 @@ public:
 
     template <typename Env>
     auto get_completion_signatures(Env &&) const {
-        return ex::completion_signatures<ex::set_value_t(), ex::set_error_t(std::exception_ptr)>{};
+        return ex::completion_signatures<ex::set_value_t(), ex::set_error_t(std::exception_ptr), ex::set_stopped_t()>{};
     }
 };
