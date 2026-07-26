@@ -4,12 +4,19 @@
       "dockerfile": "./Dockerfile",
       "context": ".",
       "args": {
-        "USER_UID": "${localEnv:USER_UID}",
-        "USER_GID": "${localEnv:USER_GID}"
+        "USER_UID": 1000,
+        "USER_GID": 1000
       }
   },
+  "runArgs": [
+    "--env=DISPLAY",
+    "--volume=/tmp/.X11-unix:/tmp/.X11-unix"
+  ],
   "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
   "remoteUser": "dev",
+  "remoteEnv": {
+    "DISPLAY": "host.docker.internal:0.0"
+  },
   "postStartCommand": "conan profile detect || true",
   "customizations": {
     "vscode": {
@@ -22,9 +29,5 @@
         "matepek.vscode-catch2-test-adapter"
       ]
     }
-  },
-  "mounts": [
-    "source=${env:HOME}/.gitconfig,target=/home/dev/.gitconfig,type=bind,consistency=cached",
-    "source=${env:HOME}/.conan2,target=/home/dev/.conan2,type=bind,consistency=cached"
-  ]
+  }
 }

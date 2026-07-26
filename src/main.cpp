@@ -7,7 +7,7 @@
 #include <SFML/Graphics.hpp>
 
 #include <exec/any_sender_of.hpp>
-#include <exec/repeat_effect_until.hpp>
+#include <exec/repeat_until.hpp>
 #include <exec/static_thread_pool.hpp>
 #include <stdexec/execution.hpp>
 
@@ -48,6 +48,7 @@ public:
     }
 
     void Run() {
+        auto fc = FrameClock();
         auto compute_sched = compute_pool_.get_scheduler();
         auto sfml_sched = sfml_thread_.get_scheduler();
 
@@ -59,10 +60,28 @@ public:
                    }));
         ex::sync_wait(std::move(initialize));
 
-        auto process_frame = ex::just(); // Ваш код здесь
+        auto process_frame =
+            ex::just() | ex::continues_on(sfml_sched) | ex::let_value([this] {
+                return SfmlEventHandler(state_->window, state_->render_settings, state_->app_state);
+            }) |
+            ex::continues_on(compute_sched) | ex::let_value([this]() {
+                return mandelbrot::MakeComputeSender(&state_->fb, state_->app_state.need_rerender,
+                                                     state_->render_settings, state_->app_state.viewport);
+            }) |
+            ex::continues_on(sfml_sched) |
+            ex::let_value([this](FrameBuffer *fb) { return render::MakeSfmlDisplaySender(*state_.get()); }) |
+            ex::then([this, &fc] { WaitForFPS{fc, 60}(); }) | ex::upon_error([](std::exception_ptr ep) {
+                try {
+                    std::rethrow_exception(ep);
+                } catch (const std::exception &e) {
+                    std::println(stderr, "Error: {}", e.what());
+                } catch (...) {
+                    std::println(stderr, "Unknown error");
+                }
+            });  // Ваш код здесь
 
         auto repeated_pipeline = std::move(process_frame) | ex::then([this] { return state_->app_state.should_exit; }) |
-                                 exec::repeat_effect_until();
+                                 exec::repeat_until();
         ex::sync_wait(std::move(repeated_pipeline));
     }
 
