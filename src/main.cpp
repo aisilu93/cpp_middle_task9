@@ -70,7 +70,15 @@ public:
             }) |
             ex::continues_on(sfml_sched) |
             ex::let_value([this](FrameBuffer *fb) { return render::MakeSfmlDisplaySender(*state_.get()); }) |
-            ex::then([this, &fc] { WaitForFPS{fc, 60}(); });  // Ваш код здесь
+            ex::then([this, &fc] { WaitForFPS{fc, 60}(); }) | ex::upon_error([](std::exception_ptr ep) {
+                try {
+                    std::rethrow_exception(ep);
+                } catch (const std::exception &e) {
+                    std::println(stderr, "Error: {}", e.what());
+                } catch (...) {
+                    std::println(stderr, "Unknown error");
+                }
+            });  // Ваш код здесь
 
         auto repeated_pipeline = std::move(process_frame) | ex::then([this] { return state_->app_state.should_exit; }) |
                                  exec::repeat_until();

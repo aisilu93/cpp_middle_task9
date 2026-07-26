@@ -25,19 +25,26 @@ public:
 
         /* Ваш код метода start() здесь */
         void start() noexcept {
-            HandleEvents();
-            if (state_.should_exit) {
-                ex::set_stopped(std::move(receiver_));
-                return;
-            }
-            if (state_.auto_zoom_enabled)
-                HandleAutoZoom();
-            else if (state_.left_mouse_pressed) {
-                ZoomToPoint(render_settings_.width / 2, render_settings_.height / 2, true);
-            } else if (state_.right_mouse_pressed)
-                ZoomToPoint(render_settings_.width / 2, render_settings_.height / 2, false);
+            try {
+                HandleEvents();
+                if (state_.should_exit) {
+                    ex::set_stopped(std::move(receiver_));
+                    return;
+                }
+                if (state_.auto_zoom_enabled)
+                    HandleAutoZoom();
+                else if (state_.left_mouse_pressed) {
+                    auto pos = sf::Mouse::getPosition(window_);
+                    ZoomToPoint(pos.x, pos.y, true);
+                } else if (state_.right_mouse_pressed) {
+                    auto pos = sf::Mouse::getPosition(window_);
+                    ZoomToPoint(render_settings_.width / 2, render_settings_.height / 2, false);
+                }
 
-            ex::set_value(std::move(receiver_));
+                ex::set_value(std::move(receiver_));
+            } catch (...) {
+                ex::set_error(std::move(receiver_), std::current_exception());
+            }
         }
 
     private:
@@ -100,15 +107,15 @@ public:
         }
 
         void ZoomToPoint(int pixel_x, int pixel_y, bool zoom_in, double factor = 0.8) {
+            if (state_.zoom_clock.getElapsedTime().asMilliseconds() < ZOOM_INTERVAL_MS)
+                return;
+            else
+                state_.zoom_clock.restart();
+
             const double target_x = state_.viewport.x_min +
                                     (static_cast<double>(pixel_x) / render_settings_.width) * state_.viewport.width();
             const double target_y = state_.viewport.y_min +
                                     (static_cast<double>(pixel_y) / render_settings_.height) * state_.viewport.height();
-
-            if (state_.zoom_clock.getElapsedTime().asMilliseconds() < ZOOM_INTERVAL_MS)
-                factor = 1.0;
-            else
-                state_.zoom_clock.restart();
 
             const double zoom_factor = zoom_in ? factor : (1.0 / factor);
             const double new_width = state_.viewport.width() * zoom_factor;
